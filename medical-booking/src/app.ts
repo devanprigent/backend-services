@@ -1,5 +1,6 @@
 import express from "express";
 import { clinicsRouter } from "./features/clinics/routes/clinics.routes.js";
+import { errorHandler } from "./middleware/errorHandler.js";
 
 export function buildApp() {
   const app = express();
@@ -11,6 +12,7 @@ export function buildApp() {
   });
 
   app.use("/clinics", clinicsRouter);
+  app.use(errorHandler);
 
   return app;
 }
