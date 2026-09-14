@@ -5,7 +5,8 @@ CREATE TABLE clinic (
     clinic_name VARCHAR(255),
     opening_time INT,
     closing_time INT,
-    slot_duration INT
+    slot_duration INT,
+    api_key VARCHAR(255) NOT NULL UNIQUE
 );
 
 CREATE TABLE patient (

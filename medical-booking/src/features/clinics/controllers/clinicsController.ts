@@ -32,7 +32,7 @@ export async function createAppointmentController(req: Request, res: Response) {
 }
 
 export async function cancelAppointmentController(req: Request, res: Response) {
-  const { clinic_id, appointment_id } = req.params;
+  const { id: clinic_id, appointment_id } = req.params;
   const appointment = await cancelAppointment(
     Number(clinic_id),
     Number(appointment_id),
