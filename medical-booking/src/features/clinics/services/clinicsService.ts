@@ -28,7 +28,7 @@ function getAvailableSlots(
   return availableSlots;
 }
 
-async function getAppointments(id: number, date: string) {
+async function getAppointments(id: number, date: Date) {
   const appointments = await pool.query(
     "SELECT * FROM appointments WHERE clinic_id = $1 AND DATE(start_time) = DATE($2)",
     [id, date],
@@ -36,17 +36,21 @@ async function getAppointments(id: number, date: string) {
   return appointments.rows;
 }
 
+function getSlotFromTime(start_time: Date): number {
+  return start_time.getHours() * 60 + start_time.getMinutes();
+}
+
 function detectAvailableSlots(
   allSlots: number[][],
-  appointments: { start_time: number | Date }[],
+  appointments: { start_time: Date }[],
 ) {
   const slotsTaken = new Set(
-    appointments.map((appointment) => appointment.start_time),
+    appointments.map((appointment) => getSlotFromTime(appointment.start_time)),
   );
   return allSlots.filter((slot) => !slotsTaken.has(slot[0]));
 }
 
-export async function listAvailableSlots(id: number, date: string) {
+export async function listAvailableSlots(id: number, date: Date) {
   const rules = await getClinicRules(id);
   const allSlots = getAvailableSlots(
     rules.opening_time,
@@ -58,26 +62,18 @@ export async function listAvailableSlots(id: number, date: string) {
   return availableSlots;
 }
 
-async function checkConflict(
-  clinic_id: number,
-  patient_id: number,
-  start_time: string,
-) {
-  const appointmentsRows = await pool.query(
-    "SELECT * FROM appointments WHERE clinic_id = $1 AND start_time = $2",
-    [clinic_id, start_time],
-  );
-  const appointments = appointmentsRows.rows;
-  if (appointments.length === 0) {
-    return;
+async function checkSlotAvailable(clinic_id: number, start_time: Date) {
+  const availableSlots = await listAvailableSlots(clinic_id, start_time);
+  const availableStartTime = availableSlots.map((slot) => slot[0]);
+
+  const requiredSlot = getSlotFromTime(start_time);
+
+  if (!availableStartTime.includes(requiredSlot)) {
+    throw createHttpError(
+      409,
+      `Slot is already taken at clinic_id: ${clinic_id} for start_time: ${start_time}`,
+    );
   }
-  if (appointments.length === 1 && appointments[0].patient_id === patient_id) {
-    return appointments[0];
-  }
-  throw createHttpError(
-    409,
-    `Slot is already taken at clinic_id: ${clinic_id} for start_time: ${start_time}`,
-  );
 }
 
 async function getClinic(clinic_id: number) {
@@ -98,7 +94,7 @@ async function getPatient(patient_id: number) {
 export async function createAppointment(
   clinic_id: number,
   patient_id: number,
-  start_time: string,
+  start_time: Date,
   appointment_type: string,
 ) {
   const patient = await getPatient(patient_id);
@@ -111,17 +107,12 @@ export async function createAppointment(
     throw createHttpError(404, `Clinic not found: ${clinic_id}`);
   }
 
-  const existingAppointment = await checkConflict(
-    clinic_id,
-    patient_id,
-    start_time,
-  );
-  if (existingAppointment) {
-    return existingAppointment;
-  }
+  await checkSlotAvailable(clinic_id, start_time);
+
   const newAppointment = await pool.query(
-    "INSERT INTO appointments (patient_id, clinic_id, start_time, appointment_type) VALUES ($1,$2,$3,$4)",
+    "INSERT INTO appointments (patient_id, clinic_id, start_time, appointment_type) VALUES ($1,$2,$3,$4) RETURNING *",
     [patient_id, clinic_id, start_time, appointment_type],
   );
-  return newAppointment.rows;
+
+  return newAppointment.rows[0];
 }
