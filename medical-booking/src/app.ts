@@ -8,6 +8,7 @@ export function buildApp() {
   app.use(express.json());
 
   app.get("/health", (_req, res) => {
+    console.log("/health");
     res.json({ status: "ok" });
   });
 

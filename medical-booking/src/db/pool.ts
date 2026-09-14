@@ -2,7 +2,7 @@ import pg from "pg";
 
 const connectionString =
   process.env.DATABASE_URL ??
-  "postgres://vocca:vocca@localhost:5433/scheduling";
+  "postgres://postgres:postgres@localhost:5432/scheduling";
 
 export const pool = new pg.Pool({ connectionString });
 
