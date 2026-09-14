@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import {
   listAvailableSlots,
   createAppointment,
+  cancelAppointment,
 } from "../services/clinicsService.js";
 import {
   appointmentSchema,
@@ -12,7 +13,7 @@ export async function getAvailableSlotsController(req: Request, res: Response) {
   const { id } = req.params;
   const { start_time } = timeSchema.parse(req.query);
   const slots = await listAvailableSlots(Number(id), new Date(start_time));
-  res.json(slots);
+  res.status(200).json(slots);
 }
 
 export async function createAppointmentController(req: Request, res: Response) {
@@ -27,5 +28,14 @@ export async function createAppointmentController(req: Request, res: Response) {
     new Date(start_time),
     String(appointment_type),
   );
-  res.json(appointment);
+  res.status(201).json(appointment);
+}
+
+export async function cancelAppointmentController(req: Request, res: Response) {
+  const { clinic_id, appointment_id } = req.params;
+  const appointment = await cancelAppointment(
+    Number(clinic_id),
+    Number(appointment_id),
+  );
+  res.status(200).json(appointment);
 }

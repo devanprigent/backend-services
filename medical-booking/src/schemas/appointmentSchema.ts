@@ -7,5 +7,5 @@ export const appointmentSchema = z.object({
 });
 
 export const timeSchema = z.object({
-  start_time: z.string().datetime(),
+  start_time: z.string(),
 });

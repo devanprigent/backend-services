@@ -30,7 +30,7 @@ function getAvailableSlots(
 
 async function getAppointments(id: number, date: Date) {
   const appointments = await pool.query(
-    "SELECT * FROM appointments WHERE clinic_id = $1 AND DATE(start_time) = DATE($2)",
+    "SELECT * FROM appointments WHERE clinic_id = $1 AND DATE(start_time) = DATE($2) AND appointment_status = 'CREATED'",
     [id, date],
   );
   return appointments.rows;
@@ -76,6 +76,14 @@ async function checkSlotAvailable(clinic_id: number, start_time: Date) {
   }
 }
 
+async function getAppointment(clinic_id: number, appointment_id: number) {
+  const appointment = await pool.query(
+    "SELECT * FROM appointments WHERE clinic_id=$1 AND appointment_id = $2",
+    [clinic_id, appointment_id],
+  );
+  return appointment.rows;
+}
+
 async function getClinic(clinic_id: number) {
   const clinic = await pool.query("SELECT * FROM clinic WHERE clinic_id = $1", [
     clinic_id,
@@ -110,9 +118,34 @@ export async function createAppointment(
   await checkSlotAvailable(clinic_id, start_time);
 
   const newAppointment = await pool.query(
-    "INSERT INTO appointments (patient_id, clinic_id, start_time, appointment_type) VALUES ($1,$2,$3,$4) RETURNING *",
+    `INSERT INTO appointments (patient_id, clinic_id, start_time, appointment_type, appointment_status)
+     VALUES ($1, $2, $3, $4, 'CREATED')
+     RETURNING *`,
     [patient_id, clinic_id, start_time, appointment_type],
   );
 
   return newAppointment.rows[0];
+}
+
+export async function cancelAppointment(
+  clinic_id: number,
+  appointment_id: number,
+) {
+  const appointment = await getAppointment(clinic_id, appointment_id);
+  if (appointment.length === 0) {
+    throw createHttpError(
+      404,
+      `Appointment not found with id=${appointment_id}`,
+    );
+  }
+
+  const canceled = await pool.query(
+    `UPDATE appointments
+     SET appointment_status = 'CANCELED'
+     WHERE appointment_id = $1 AND clinic_id = $2
+     RETURNING *`,
+    [appointment_id, clinic_id],
+  );
+
+  return canceled.rows[0];
 }
